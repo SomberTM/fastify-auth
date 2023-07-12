@@ -1,0 +1,25 @@
+{
+  "name": "fastify",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon src/index.ts",
+    "dev:migrate": "prisma migrate dev"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "ts-node": "^10.9.1"
+  },
+  "dependencies": {
+    "@fastify/type-provider-typebox": "^3.3.0",
+    "@prisma/client": "5.0.0",
+    "@sinclair/typebox": "^0.29.4",
+    "fastify": "^4.19.2",
+    "fastify-plugin": "^4.5.0",
+    "prisma": "^5.0.0"
+  }
+}
