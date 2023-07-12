@@ -1,9 +1,9 @@
 import fastify from "./fastify";
 import prisma from "./plugins/prisma";
-import userRoutes from "./users/routes";
+import users from "./routes/users";
 
 fastify.register(prisma);
-fastify.register(userRoutes, {
+fastify.register(users, {
   prefix: "/user",
 });
 
