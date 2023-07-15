@@ -14,7 +14,7 @@ model User {
     password  String
 
     sessionId String?  @unique
-    session   Session? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+    session   Session? 
 }
 
 model Session {
@@ -23,7 +23,7 @@ model Session {
     expiresAt Int
 
     userId    String? @unique
-    user      User?   
+    user      User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {

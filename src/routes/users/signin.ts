@@ -1,43 +1,39 @@
 import { FastifyInstance, FastifyPluginOptions } from "fastify";
 import {
   ErrorMessage,
+  IUser,
   User,
   IRedirectQuery,
   RedirectQuery,
   IUserOmitPassword,
-  UserOmitPassword,
 } from "./types";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { getDateDaysOut, getExpiresInDays } from "../../utils/dates";
 import { generateSessionToken, hashSessionToken } from "../../utils/tokens";
 import { Type, Static } from "@sinclair/typebox";
-import bcrypt from "bcrypt"
-import { hashPassword } from "../../utils/passwords";
+import { comparePassword } from "../../utils/passwords";
 
-const SignupUser = Type.Object({
+const SigninUser = Type.Object({
   credentials: Type.Required(Type.String()),
-  email: Type.Required(Type.String()),
 });
-type ISignupUser = Static<typeof SignupUser>;
-
-const saltRounds = 10;
+type ISigninUser = Static<typeof SigninUser>;
 
 export default async function (
   fastify: FastifyInstance,
   options: FastifyPluginOptions,
 ) {
   fastify.post<{
-    Body: ISignupUser;
+    Body: ISigninUser;
     Reply: IUserOmitPassword;
     Querystring: IRedirectQuery;
   }>(
-    "/signup",
+    "/signin",
     {
       schema: {
-        body: SignupUser,
+        body: SigninUser,
         querystring: RedirectQuery,
         response: {
-          201: UserOmitPassword,
+          201: User,
           400: ErrorMessage,
         },
       },
@@ -47,30 +43,43 @@ export default async function (
         request.cookies[process.env.SESSION_TOKEN_COOKIE_NAME!];
 
       if (sessionToken)
-        return reply.status(400).send({ message: "A signed in user cannot sign up" })
+        return reply.status(400).send({ message: "Cannot sign in again" })
 
-      const { credentials, email } = request.body;
+      const { credentials } = request.body;
       const [username, password] = credentials
         .split(":")
         .map((credential) =>
           Buffer.from(credential, "base64").toString("utf-8")
         );
 
+
       try {
+        const existingUser = await fastify.prisma.user.findUnique({
+          where: {
+            username
+          }
+        });
+
+        if (!existingUser)
+          return reply.status(400).send({ message: "Incorrect credentials" })
+
+        const isCorrectPassword = await comparePassword(password, existingUser.password);
+        if (!isCorrectPassword)
+          return reply.status(400).send({ message: "Incorrect credentials" })
+
         const sessionToken = generateSessionToken();
         const expiresDays = 3;
-        const hashedPassword = await hashPassword(password);
-        const user = await fastify.prisma.user.create({
-          data: {
+        const user = await fastify.prisma.user.update({
+          where: {
             username,
-            password: hashedPassword,
-            email,
+          },
+          data: {
             session: {
               create: {
                 token: hashSessionToken(sessionToken),
-                expiresAt: getExpiresInDays(expiresDays),
-              },
-            },
+                expiresAt: getExpiresInDays(expiresDays)
+              }
+            }
           },
           select: {
             id: true,
@@ -79,13 +88,12 @@ export default async function (
           }
         });
 
-        const redirectUri = request.query.redirectUri;
-        if (redirectUri)
-          reply.redirect(302, redirectUri)
+        if (!user)
+          return reply.status(400).send({ message: "Incorrect credentials" })
 
         reply
           .type("application/json")
-          .status(201)
+          .status(200)
           .setCookie(process.env.SESSION_TOKEN_COOKIE_NAME!, sessionToken, {
             expires: getDateDaysOut(expiresDays),
             path: "/",

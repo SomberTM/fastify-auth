@@ -8,10 +8,9 @@ const DeleteUser = Type.Object({
 });
 type IDeleteUser = Static<typeof DeleteUser>;
 
-export default function (
+export default async function (
   fastify: FastifyInstance,
   options: FastifyPluginOptions,
-  done: () => void
 ) {
   fastify.delete<{ Body: IDeleteUser; Reply: IUserOmitPassword }>(
     "/",
@@ -61,5 +60,4 @@ export default function (
       return deletedUser;
     }
   );
-  done();
 }
